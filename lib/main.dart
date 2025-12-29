@@ -74,7 +74,7 @@ class _MainScreenState extends State<MainScreen> {
         _belege = List<Map<String, dynamic>>.from(jsonDecode(data));
       });
     } else {
-      // Initiale Demo-Daten für den ersten Start
+      // Demo-Daten beim ersten Start
       _belege = _getDemoData();
       _saveData();
     }
@@ -118,7 +118,7 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
-  // --- NEU: EXPORT FUNKTION ---
+  // --- EXPORT FUNKTION ---
   Future<void> _exportCsv() async {
     if (_belege.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Keine Daten zum Exportieren da!")));
@@ -126,26 +126,23 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     try {
-      // 1. CSV String bauen
       StringBuffer csvBuffer = StringBuffer();
-      csvBuffer.writeln("Datum;Haendler;Kategorie;Betrag (EUR)"); // Header
+      csvBuffer.writeln("Datum;Haendler;Kategorie;Betrag (EUR)"); 
 
       for (var item in _belege) {
         String datum = item['datum'] ?? "";
-        String haendler = (item['haendler'] ?? "").replaceAll(";", ","); // Semikolon entfernen um CSV nicht zu brechen
+        String haendler = (item['haendler'] ?? "").replaceAll(";", ","); 
         String kat = item['kategorie'] ?? "";
-        String betrag = (item['betrag'] ?? 0).toString().replaceAll(".", ","); // Deutsches Format
+        String betrag = (item['betrag'] ?? 0).toString().replaceAll(".", ","); 
         
         csvBuffer.writeln("$datum;$haendler;$kat;$betrag");
       }
 
-      // 2. Datei speichern
       final directory = await getTemporaryDirectory();
       final path = '${directory.path}/Steuer_Export_${DateTime.now().year}.csv';
       final file = File(path);
       await file.writeAsString(csvBuffer.toString());
 
-      // 3. Teilen Dialog öffnen
       await Share.shareXFiles([XFile(path)], text: 'Mein Steuer Ultra Export');
       
     } catch (e) {
@@ -218,7 +215,6 @@ class DashboardPage extends StatelessWidget {
 
     return Column(
       children: [
-        // Modern Header
         Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(24, 70, 24, 30),
@@ -233,95 +229,37 @@ class DashboardPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("Steuerjahr 2025", style: TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.bold)),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                    child: const Text("Optimiert", style: TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-                  )
-                ],
-              ),
-              const SizedBox(height: 12),
               const Text("Absetzbare Summe", style: TextStyle(color: Colors.white70, fontSize: 14)),
               const SizedBox(height: 4),
               Text(
                 NumberFormat.currency(locale: 'de_DE', symbol: '€').format(total), 
                 style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: Colors.white)
               ),
-              const SizedBox(height: 20),
-              // Stats
-              Row(
-                children: [
-                   _StatBadge(icon: Icons.receipt, label: "${belege.length} Belege"),
-                   const SizedBox(width: 12),
-                   _StatBadge(icon: Icons.category, label: "${belege.map((e) => e['kategorie']).toSet().length} Kategorien"),
-                ],
-              )
             ],
           ),
         ),
         
-        // Liste
         Expanded(
           child: belege.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.description_outlined, size: 64, color: Colors.grey.shade300),
-                    const SizedBox(height: 16),
-                    Text("Noch keine Daten", style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
-                  ],
-                ),
-              )
+            ? const Center(child: Text("Keine Daten", style: TextStyle(color: Colors.grey)))
             : ListView.separated(
                 padding: const EdgeInsets.all(20),
                 itemCount: belege.length,
                 separatorBuilder: (_,__) => const SizedBox(height: 12),
                 itemBuilder: (ctx, i) {
                   final item = belege[i];
-                  final catColor = _getColorForCategory(item['kategorie']);
                   return Dismissible(
                     key: Key(item.hashCode.toString()),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 24),
-                      decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(16)),
-                      child: const Icon(Icons.delete_outline, color: Colors.red),
-                    ),
                     onDismissed: (_) => onDelete(i),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))],
-                      ),
+                    background: Container(color: Colors.red),
+                    child: Card(
                       child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        leading: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: catColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(_getIconForCategory(item['kategorie']), color: catColor),
-                        ),
+                        leading: Icon(_getIconForCategory(item['kategorie'])),
                         title: Text(item['haendler'] ?? "Unbekannt", style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(item['kategorie'] ?? "Sonstiges", style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              NumberFormat.currency(locale: 'de_DE', symbol: '€').format(item['betrag']), 
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)
-                            ),
-                            Text(item['datum'] ?? "", style: TextStyle(color: Colors.grey.shade400, fontSize: 10)),
-                          ],
+                        subtitle: Text(item['kategorie'] ?? "Sonstiges"),
+                        trailing: Text(
+                          NumberFormat.currency(locale: 'de_DE', symbol: '€').format(item['betrag']), 
+                          style: const TextStyle(fontWeight: FontWeight.bold)
                         ),
                       ),
                     ),
@@ -336,69 +274,22 @@ class DashboardPage extends StatelessWidget {
   IconData _getIconForCategory(String? cat) {
     if (cat == null) return Icons.receipt;
     final c = cat.toLowerCase();
-    
-    // Icons für die neuen Kategorien
     if (c.contains('internet') || c.contains('telefon')) return Icons.wifi;
     if (c.contains('versicherung')) return Icons.shield_outlined;
-    if (c.contains('home') || c.contains('office') || c.contains('arbeitszimmer')) return Icons.desk;
-    if (c.contains('kinder') || c.contains('kita')) return Icons.child_care;
-    if (c.contains('haushalt') || c.contains('garten') || c.contains('reinigung')) return Icons.cleaning_services;
-    
-    // Standard Icons
-    if (c.contains('gesundheit') || c.contains('arzt') || c.contains('apotheke')) return Icons.medical_services_outlined;
-    if (c.contains('fahrt') || c.contains('tank') || c.contains('bahn')) return Icons.directions_car;
-    if (c.contains('arbeitsmittel') || c.contains('technik') || c.contains('software')) return Icons.computer;
-    if (c.contains('handwerker')) return Icons.build_outlined;
-    if (c.contains('bewirtung') || c.contains('verpflegung')) return Icons.restaurant;
-    
+    if (c.contains('home') || c.contains('office')) return Icons.desk;
+    if (c.contains('kinder')) return Icons.child_care;
+    if (c.contains('gesundheit')) return Icons.medical_services_outlined;
+    if (c.contains('fahrt') || c.contains('tank')) return Icons.directions_car;
+    if (c.contains('handwerker')) return Icons.build;
+    if (c.contains('bewirtung')) return Icons.restaurant;
     return Icons.receipt_long;
-  }
-
-  Color _getColorForCategory(String? cat) {
-    if (cat == null) return Colors.grey;
-    final c = cat.toLowerCase();
-    
-    if (c.contains('internet') || c.contains('telefon')) return Colors.purple;
-    if (c.contains('versicherung')) return Colors.indigo;
-    if (c.contains('home')) return Colors.teal;
-    if (c.contains('kinder')) return Colors.pinkAccent;
-    if (c.contains('gesundheit')) return Colors.redAccent;
-    if (c.contains('fahrt')) return Colors.blue;
-    if (c.contains('handwerker') || c.contains('haushalt')) return Colors.orange;
-    
-    return Colors.blueGrey;
-  }
-}
-
-class _StatBadge extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _StatBadge({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.white70, size: 14),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
-        ],
-      ),
-    );
   }
 }
 
 // --- EINSTELLUNGEN ---
 class SettingsPage extends StatefulWidget {
   final VoidCallback onDeleteAll;
-  final VoidCallback onExport; // Neuer Callback für Export
+  final VoidCallback onExport;
   const SettingsPage({super.key, required this.onDeleteAll, required this.onExport});
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -424,109 +315,44 @@ class _SettingsPageState extends State<SettingsPage> {
     await prefs.setString('custom_api_key', _controller.text.trim());
     setState(() => _saved = true);
     if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("API Key gespeichert!")));
-    Future.delayed(const Duration(seconds: 2), () {
-      if(mounted) setState(() => _saved = false);
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Einstellungen", style: TextStyle(color: Colors.black)), 
-        backgroundColor: Colors.transparent, 
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
+      appBar: AppBar(title: const Text("Einstellungen"), backgroundColor: Colors.transparent, elevation: 0),
+      body: ListView(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionTitle("KI Verbindung"),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _controller,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: "Google Gemini API Key",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      prefixIcon: const Icon(Icons.key),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _saveKey,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _saved ? Colors.green : const Color(0xFF0F172A),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text(_saved ? "GESPEICHERT ✓" : "KEY SPEICHERN", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-            _buildSectionTitle("Daten-Export"),
-            Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
-              child: ListTile(
-                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.ios_share, color: Colors.blue)),
-                title: const Text("Als CSV exportieren"),
-                subtitle: const Text("Für Excel oder WISO Steuer"),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: widget.onExport, // Ruft die Export Funktion auf
-              ),
-            ),
-
-            const SizedBox(height: 32),
-            _buildSectionTitle("Datenbank"),
-            Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
-              child: ListTile(
-                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.delete_forever, color: Colors.red)),
-                title: const Text("Alles löschen"),
-                subtitle: const Text("Setzt die App zurück"),
-                onTap: () {
-                  showDialog(context: context, builder: (ctx) => AlertDialog(
-                    title: const Text("Achtung"),
-                    content: const Text("Wirklich alle Belege löschen?"),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Abbrechen")),
-                      TextButton(onPressed: () {
-                        widget.onDeleteAll();
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Daten gelöscht.")));
-                      }, child: const Text("Löschen", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
-                    ],
-                  ));
-                },
-              ),
-            ),
-            
-            const SizedBox(height: 40),
-            Center(child: Text("Steuer Ultra v1.3 Export", style: TextStyle(color: Colors.grey.shade400, fontSize: 12))),
-          ],
-        ),
+        children: [
+          TextField(
+            controller: _controller,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: "Google Gemini API Key", border: OutlineInputBorder()),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: _saveKey,
+            style: ElevatedButton.styleFrom(backgroundColor: _saved ? Colors.green : const Color(0xFF0F172A)),
+            child: Text(_saved ? "GESPEICHERT" : "SPEICHERN", style: const TextStyle(color: Colors.white)),
+          ),
+          const SizedBox(height: 30),
+          ListTile(
+            leading: const Icon(Icons.share, color: Colors.blue),
+            title: const Text("Exportieren (CSV)"),
+            onTap: widget.onExport,
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          const SizedBox(height: 10),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
+            title: const Text("Alles löschen"),
+            onTap: widget.onDeleteAll,
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12, left: 4),
-      child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey, letterSpacing: 1)),
     );
   }
 }
@@ -551,17 +377,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Future<void> _start() async {
     final prefs = await SharedPreferences.getInstance();
     final apiKey = prefs.getString('custom_api_key');
-
     if (apiKey == null || apiKey.isEmpty) {
       if (!mounted) return;
-      showDialog(context: context, builder: (ctx) => AlertDialog(
-        title: const Text("API Key fehlt"),
-        content: const Text("Bitte trage in den Einstellungen deinen Google API Key ein."),
-        actions: [TextButton(onPressed: () { Navigator.pop(ctx); Navigator.pop(context); }, child: const Text("OK"))],
-      ));
+      showDialog(context: context, builder: (ctx) => AlertDialog(title: const Text("Key fehlt"), actions: [TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text("OK"))]));
       return;
     }
-
     await Permission.camera.request();
     final img = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 85);
     if(img != null) _analyze(File(img.path), apiKey);
@@ -569,59 +389,23 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   Future<void> _analyze(File f, String key) async {
-    setState(() { _busy = true; _status = "Analysiere Beleg..."; });
+    setState(() { _busy = true; _status = "Analysiere..."; });
     try {
       final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: key);
-      
-      const promptText = '''
-      Analysiere diesen Beleg für die Steuererklärung.
-      Antworte NUR mit diesem JSON-Format (kein Markdown):
-      {
-        "haendler": "Name",
-        "datum": "TT.MM.YYYY",
-        "betrag": 0.00,
-        "kategorie": "WÄHLE: 'Arbeitsmittel', 'Home-Office', 'Internet/Telefon', 'Fahrtkosten', 'Gesundheit', 'Handwerker', 'Haushaltsnahe DL', 'Versicherung', 'Kinderbetreuung', 'Bewirtung' oder 'Sonstiges'"
-      }
-      ''';
-
-      final prompt = TextPart(promptText);
-      final content = [Content.multi([prompt, DataPart('image/jpeg', await f.readAsBytes())])];
-      final res = await model.generateContent(content);
-      
+      const promptText = '''Analysiere Beleg für Steuer. Antworte NUR JSON: {"haendler": "x", "datum": "TT.MM.YYYY", "betrag": 0.0, "kategorie": "Arbeitsmittel/Internet/Home-Office/Fahrtkosten/Gesundheit/Handwerker/Versicherung/Kinder/Bewirtung/Sonstiges"}''';
+      final res = await model.generateContent([Content.multi([TextPart(promptText), DataPart('image/jpeg', await f.readAsBytes())])]);
       String text = res.text?.replaceAll(RegExp(r'```json|```'), '').trim() ?? "{}";
       final startIndex = text.indexOf('{');
       final endIndex = text.lastIndexOf('}');
-      if (startIndex != -1 && endIndex != -1) {
-        text = text.substring(startIndex, endIndex + 1);
-      }
-
+      if (startIndex != -1 && endIndex != -1) text = text.substring(startIndex, endIndex + 1);
       if(mounted) Navigator.pop(context, jsonDecode(text));
     } catch(e) {
-      setState(() { _busy = false; _status = "Fehler: $e\n\nNochmal versuchen."; });
+      setState(() { _busy = false; _status = "Fehler: $e"; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if(_busy) const SizedBox(width: 60, height: 60, child: CircularProgressIndicator(color: Colors.blueAccent)),
-              const SizedBox(height: 32),
-              Text(_status, style: const TextStyle(color: Colors.white, fontSize: 16), textAlign: TextAlign.center),
-              if(!_busy) Padding(
-                padding: const EdgeInsets.only(top: 32),
-                child: ElevatedButton(onPressed: _start, child: const Text("Neuer Versuch")),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
+    return Scaffold(backgroundColor: Colors.black, body: Center(child: Text(_status, style: const TextStyle(color: Colors.white))));
   }
 }
