@@ -26,8 +26,12 @@ jobs:
           # Debugging path
           ls -la
           
-          # Erstellt das Projektgerüst neu
+          # Erstellt das Projektgerüst neu, falls Platform-Ordner fehlen
+          # WICHTIG: Verwende den exakten Package-Namen, damit Platform-Code passt.
           flutter create --org de.app --project-name steuer_ultra --platforms android . || true
+          
+          echo "Project structure after create:"
+          ls -la android/app/src/main || echo "Android folder missing!"
 
       - name: Overwrite pubspec.yaml
         run: |
@@ -47,6 +51,7 @@ jobs:
             image_picker: ^1.0.7
             permission_handler: ^11.0.1
             cupertino_icons: ^1.0.2
+            intl: ^0.19.0
           
           dev_dependencies:
             flutter_test:
@@ -61,6 +66,7 @@ jobs:
         run: |
           mkdir -p android/app/src/main
           
+          # Wir nutzen steuer_ultra (mit Unterstrich) passend zum Flutter Project Name
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="de.app.steuer_ultra">
@@ -99,7 +105,7 @@ jobs:
 
       - name: Build APK
         run: |
-          # Release Build with API Key
+          # Verwende --debug falls release scheitert wegen Signing, aber hier probieren wir Release
           flutter build apk --release --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
       - name: Upload APK
