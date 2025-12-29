@@ -28,7 +28,7 @@ jobs:
           flutter create --org de.app --project-name steuer_ultra --platforms android .
 
       - name: Generate pubspec.yaml
-        # ACHTUNG: Der Inhalt ab hier muss exakt linksbündig sein!
+        # WICHTIG: Hier darf NICHT "Lauf" stehen, sondern "run"!
         run: |
           cat <<EOF > pubspec.yaml
           name: steuer_ultra
