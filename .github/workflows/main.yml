@@ -19,36 +19,45 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'
+          channel: 'stable' # Nimm immer die allerneueste stabile Version (löst viele Probleme)
+          cache: true
 
-      - name: Initialize Android Only
+      - name: Initialize Android Clean
         run: |
-          # Wir löschen NUR den Android-Ordner, um ihn sauber neu zu erstellen.
-          # Dein Code im 'lib'-Ordner bleibt erhalten!
           rm -rf android
-          
-          # Erstellt die Android-Struktur neu
           flutter create --org de.app --project-name steuer_ultra --platforms android .
 
-      - name: Force Fix Android Config (Python)
+      - name: Fix Android Config (Strong)
         run: |
-          # Dieses Skript repariert die Versionen in der build.gradle automatisch
           python3 -c "
-          import re
+          import re, os
+          
+          # 1. build.gradle (App Level) für SDK Versionen patchen
           path = 'android/app/build.gradle'
-          with open(path, 'r') as f: content = f.read()
-          
-          # Setze minSdkVersion auf 24
-          content = re.sub(r'minSdkVersion .*', 'minSdkVersion 24', content)
-          # Setze compileSdkVersion auf 34
-          content = re.sub(r'compileSdkVersion .*', 'compileSdkVersion 34', content)
-          
-          with open(path, 'w') as f: f.write(content)
+          if os.path.exists(path):
+              with open(path, 'r') as f: content = f.read()
+              
+              # Min SDK auf 24
+              content = re.sub(r'minSdkVersion .*', 'minSdkVersion 24', content)
+              # Compile SDK auf 34
+              content = re.sub(r'compileSdkVersion .*', 'compileSdkVersion 34', content)
+              
+              # MultiDex aktivieren (verhindert viele Abstürze)
+              if 'multiDexEnabled true' not in content:
+                  content = content.replace('defaultConfig {', 'defaultConfig {\n        multiDexEnabled true')
+              
+              if 'implementation \"androidx.multidex:multidex:' not in content:
+                   content = content.replace('dependencies {', 'dependencies {\n    implementation \"androidx.multidex:multidex:2.0.1\"')
+
+              with open(path, 'w') as f: f.write(content)
+              print('✅ App build.gradle patched')
+
+          # 2. settings.gradle (Plugin Portal) fixen, falls nötig
+          # (Flutter stable macht das meistens schon richtig)
           "
 
-      - name: Ensure pubspec.yaml is correct
+      - name: Ensure pubspec.yaml
         run: |
-          # Wir schreiben die korrekte pubspec.yaml, damit alle Plugins (intl, shared_prefs) da sind
           cat <<EOF > pubspec.yaml
           name: steuer_ultra
           description: Professioneller Steuer-Scanner und Assistent
@@ -116,9 +125,10 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK (DEBUG)
+      - name: Build APK (Debug)
         run: |
-          flutter build apk --debug --verbose --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          # Wir nutzen --debug und --no-shrink für maximale Fehlertoleranz
+          flutter build apk --debug --no-shrink --verbose --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
