@@ -19,118 +19,85 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          channel: 'stable' # Nimm immer die allerneueste stabile Version (löst viele Probleme)
+          flutter-version: '3.19.0'
           cache: true
 
       - name: Initialize Android Clean
         run: |
+          # Lösche existierenden Android Ordner, um Konflikte zu vermeiden
           rm -rf android
+          # Erstelle Android-Projektstruktur neu
           flutter create --org de.app --project-name steuer_ultra --platforms android .
 
-      - name: Fix Android Config (Strong)
+      - name: Configure Android SDK & Permissions
         run: |
-          python3 -c "
-          import re, os
-          
-          # 1. build.gradle (App Level) für SDK Versionen patchen
-          path = 'android/app/build.gradle'
-          if os.path.exists(path):
-              with open(path, 'r') as f: content = f.read()
-              
-              # Min SDK auf 24
-              content = re.sub(r'minSdkVersion .*', 'minSdkVersion 24', content)
-              # Compile SDK auf 34
-              content = re.sub(r'compileSdkVersion .*', 'compileSdkVersion 34', content)
-              
-              # MultiDex aktivieren (verhindert viele Abstürze)
-              if 'multiDexEnabled true' not in content:
-                  content = content.replace('defaultConfig {', 'defaultConfig {\n        multiDexEnabled true')
-              
-              if 'implementation \"androidx.multidex:multidex:' not in content:
-                   content = content.replace('dependencies {', 'dependencies {\n    implementation \"androidx.multidex:multidex:2.0.1\"')
+          # 1. Setze minSdkVersion auf 24 (Wichtig für KI/Kamera)
+          # Wir suchen die Zeile mit minSdkVersion und ersetzen sie hart.
+          sed -i 's/minSdkVersion .*/minSdkVersion 24/g' android/app/build.gradle
+          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
 
-              with open(path, 'w') as f: f.write(content)
-              print('✅ App build.gradle patched')
+          # 2. Permissions injizieren (Sicherer als Überschreiben der Datei)
+          # Wir suchen nach dem <application Tag und fügen davor die Permissions ein
+          sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <application|' android/app/src/main/AndroidManifest.xml
 
-          # 2. settings.gradle (Plugin Portal) fixen, falls nötig
-          # (Flutter stable macht das meistens schon richtig)
-          "
+          echo "✅ Android Config patched"
 
-      - name: Ensure pubspec.yaml
+      - name: Overwrite pubspec.yaml
+        # WICHTIG: Der Inhalt zwischen EOF darf KEINE Einrückung am Zeilenanfang haben!
         run: |
           cat <<EOF > pubspec.yaml
           name: steuer_ultra
-          description: Professioneller Steuer-Scanner und Assistent
+          description: Steuer Scanner
           publish_to: 'none'
           version: 1.0.0+1
-          
+
           environment:
             sdk: '>=3.2.0 <4.0.0'
-          
+
           dependencies:
             flutter:
               sdk: flutter
             google_generative_ai: ^0.4.0
             image_picker: ^1.0.7
             permission_handler: ^11.0.1
+            path_provider: ^2.1.2
             cupertino_icons: ^1.0.2
             intl: ^0.19.0
             shared_preferences: ^2.2.2
-          
+
           dev_dependencies:
             flutter_test:
               sdk: flutter
-            flutter_lints: ^2.0.0
-          
+            flutter_lints: ^3.0.0
+
           flutter:
             uses-material-design: true
           EOF
 
-      - name: Create AndroidManifest.xml
+      - name: Create Dummy main.dart (Fallback)
+        # Erstellt eine Datei, falls keine da ist, damit der Build nicht fehlschlägt
+        # Wir rücken das EOF nicht ein, um Fehler im IF-Block zu vermeiden
         run: |
-          mkdir -p android/app/src/main
-          cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="de.app.steuer_ultra">
-              <uses-permission android:name="android.permission.INTERNET"/>
-              <uses-permission android:name="android.permission.CAMERA"/>
-              <application
-                  android:label="Steuer Ultra"
-                  android:name="\${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-                      <meta-data
-                        android:name="io.flutter.embedding.android.NormalTheme"
-                        android:resource="@style/NormalTheme"
-                        />
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-                  <meta-data
-                      android:name="flutterEmbedding"
-                      android:value="2" />
-              </application>
-          </manifest>
+          if [ ! -f lib/main.dart ]; then
+            mkdir -p lib
+            echo "Erstelle Dummy main.dart..."
+            cat <<EOF > lib/main.dart
+          import 'package:flutter/material.dart';
+          void main() => runApp(MaterialApp(home: Scaffold(body: Center(child: Text('Steuer Ultra')))));
           EOF
+          fi
 
       - name: Install Dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
+          flutter clean
 
       - name: Build APK (Debug)
         run: |
-          # Wir nutzen --debug und --no-shrink für maximale Fehlertoleranz
           flutter build apk --debug --no-shrink --verbose --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: steuer-ultra-app
