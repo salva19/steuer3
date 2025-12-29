@@ -24,13 +24,11 @@ jobs:
 
       - name: Clean & Re-Create Android Project
         run: |
-          # Lösche defekte Konfigurationen
           rm -rf android build ios
-          # Erstelle Android-Struktur neu (überschreibt nicht lib/main.dart)
           flutter create --org de.app --project-name steuer_ultra --platforms android .
 
       - name: Generate pubspec.yaml
-        # ACHTUNG: Der Block unten muss genau so linksbündig bleiben!
+        # ACHTUNG: Der Inhalt ab hier muss exakt linksbündig sein!
         run: |
           cat <<EOF > pubspec.yaml
           name: steuer_ultra
@@ -48,6 +46,7 @@ jobs:
             image_picker: ^1.0.7
             permission_handler: ^11.0.1
             path_provider: ^2.1.2
+            share_plus: ^9.0.0
             cupertino_icons: ^1.0.2
             intl: ^0.19.0
             shared_preferences: ^2.2.2
@@ -63,12 +62,12 @@ jobs:
 
       - name: Configure Android SDK & Permissions
         run: |
-          # Setze MinSDK auf 24 (Zwingend für Google AI)
+          # SDK Versionen fixen (Wichtig für Share Plus und AI)
           sed -i 's/minSdkVersion .*/minSdkVersion 24/g' android/app/build.gradle
           sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
           
-          # Injiziere Permissions in das Android Manifest
-          sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <application|' android/app/src/main/AndroidManifest.xml
+          # Permissions injizieren
+          sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <application|' android/app/src/main/AndroidManifest.xml
           
           echo "✅ Android Konfiguration abgeschlossen."
 
@@ -76,7 +75,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        # --no-shrink deaktiviert Obfuscation (löst viele Build-Fehler)
+        # --no-shrink verhindert Fehler beim Export-Modul
         run: |
           flutter build apk --debug --no-shrink --verbose --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
