@@ -23,39 +23,41 @@ jobs:
 
       - name: Initialize Flutter Project
         run: |
-          rm -rf android
+          # Lösche alten Android Ordner für einen sauberen Start
+          rm -rf android build
+          # Erstelle das Android-Gerüst neu
           flutter create --org de.app --project-name steuer_ultra --platforms android .
 
-      - name: Force Fix Android Config
+      - name: Inject Permissions into Manifest
+        # Statt die Datei zu überschreiben, fügen wir die Permissions in die generierte Datei ein.
+        # Das ist viel sicherer, da Activity-Namen und Paketstruktur erhalten bleiben.
         run: |
-          # Wir nutzen Python, um die build.gradle zuverlässig zu patchen
-          python3 -c "
-          import re
-          path = 'android/app/build.gradle'
-          with open(path, 'r') as f: content = f.read()
+          sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <application|' android/app/src/main/AndroidManifest.xml
           
-          # Setze minSdkVersion auf 24 (wichtig für Kamera/KI)
-          content = re.sub(r'minSdkVersion .*', 'minSdkVersion 24', content)
-          # Setze compileSdkVersion auf 34 (wichtig für Permissions)
-          content = re.sub(r'compileSdkVersion .*', 'compileSdkVersion 34', content)
+          # Kontrolle: Zeige den Inhalt
+          cat android/app/src/main/AndroidManifest.xml
+
+      - name: Configure Android SDK Versions
+        # Wir setzen minSdkVersion auf 24 (für KI/Kamera) und compileSdk auf 34 (für Android 14)
+        run: |
+          sed -i 's/minSdkVersion .*/minSdkVersion 24/' android/app/build.gradle
+          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/' android/app/build.gradle
           
-          with open(path, 'w') as f: f.write(content)
-          "
-          
-          # Zeige die Datei zur Sicherheit im Log an
-          cat android/app/build.gradle | grep minSdkVersion
+          # Kontrolle
+          grep "SdkVersion" android/app/build.gradle
 
       - name: Overwrite pubspec.yaml
+        # Hier definieren wir deine Dependencies
         run: |
           cat <<EOF > pubspec.yaml
           name: steuer_ultra
           description: Professioneller Steuer-Scanner und Assistent
           publish_to: 'none'
           version: 1.0.0+1
-          
+
           environment:
             sdk: '>=3.2.0 <4.0.0'
-          
+
           dependencies:
             flutter:
               sdk: flutter
@@ -65,54 +67,20 @@ jobs:
             cupertino_icons: ^1.0.2
             intl: ^0.19.0
             shared_preferences: ^2.2.2
-          
+
           dev_dependencies:
             flutter_test:
               sdk: flutter
-            flutter_lints: ^2.0.0
-          
+            flutter_lints: ^3.0.0
+
           flutter:
             uses-material-design: true
           EOF
 
-      - name: Overwrite AndroidManifest.xml
+      - name: Install Dependencies & Clean
         run: |
-          mkdir -p android/app/src/main
-          cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="de.app.steuer_ultra">
-              <uses-permission android:name="android.permission.INTERNET"/>
-              <uses-permission android:name="android.permission.CAMERA"/>
-              <application
-                  android:label="Steuer Ultra"
-                  android:name="\${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-                      <meta-data
-                        android:name="io.flutter.embedding.android.NormalTheme"
-                        android:resource="@style/NormalTheme"
-                        />
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-                  <meta-data
-                      android:name="flutterEmbedding"
-                      android:value="2" />
-              </application>
-          </manifest>
-          EOF
-
-      - name: Install Dependencies
-        run: flutter pub get
+          flutter pub get
+          flutter clean
 
       - name: Build APK (DEBUG)
         run: |
