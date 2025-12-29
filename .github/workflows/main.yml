@@ -23,8 +23,18 @@ jobs:
 
       - name: Initialize Flutter Project
         run: |
-          # Erstellt das Projektgerüst neu
-          flutter create --org de.app --project-name steuer_ultra --platforms android . || true
+          # Clean slate to prevent artifacts
+          rm -rf android
+          
+          # Erstellt das Projektgerüst komplett frisch
+          flutter create --org de.app --project-name steuer_ultra --platforms android . 
+
+      - name: Patch Android Build Gradle (Fix MinSDK)
+        run: |
+          # Wir müssen die minSdkVersion erhöhen, da moderne Plugins (Kamera/KI) mindestens Version 21 brauchen.
+          # Der Standard ist oft zu niedrig.
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' android/app/build.gradle
+          sed -i 's/minSdkVersion [0-9]*/minSdkVersion 24/g' android/app/build.gradle
 
       - name: Overwrite pubspec.yaml
         run: |
@@ -58,8 +68,7 @@ jobs:
 
       - name: Overwrite AndroidManifest.xml
         run: |
-          mkdir -p android/app/src/main
-          
+          # Wir nutzen steuer_ultra (mit Unterstrich) passend zum Flutter Project Name
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="de.app.steuer_ultra">
@@ -96,9 +105,9 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK (DEBUG MODE)
+      - name: Build APK (DEBUG)
         run: |
-          # WICHTIG: --debug Modus nutzen, um Fehler bei Release-Zertifikaten zu umgehen
+          # Wir nutzen DEBUG für maximale Kompatibilität ohne Signing-Probleme
           flutter build apk --debug --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
       - name: Upload APK
