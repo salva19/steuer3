@@ -22,61 +22,38 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Clean & Create Project
+      - name: Setup Project & Dependencies
+        # Wir nutzen offizielle Befehle statt Text-Bearbeitung. Das verhindert den Fehler.
         run: |
+          # 1. Aufräumen
           rm -rf android build ios
-          flutter create --org de.app --project-name steuer_ultra --platforms android .
-
-      - name: Generate pubspec.yaml (Safe Mode)
-        # Wir schreiben jede Zeile einzeln. Das ist 100% sicher gegen Einrückungsfehler.
-        run: |
-          echo "name: steuer_ultra" > pubspec.yaml
-          echo "description: Steuer Scanner" >> pubspec.yaml
-          echo "publish_to: 'none'" >> pubspec.yaml
-          echo "version: 1.0.0+1" >> pubspec.yaml
-          echo "" >> pubspec.yaml
-          echo "environment:" >> pubspec.yaml
-          echo "  sdk: '>=3.2.0 <4.0.0'" >> pubspec.yaml
-          echo "" >> pubspec.yaml
-          echo "dependencies:" >> pubspec.yaml
-          echo "  flutter:" >> pubspec.yaml
-          echo "    sdk: flutter" >> pubspec.yaml
-          echo "  google_generative_ai: ^0.4.0" >> pubspec.yaml
-          echo "  image_picker: ^1.0.7" >> pubspec.yaml
-          echo "  permission_handler: ^11.0.1" >> pubspec.yaml
-          echo "  path_provider: ^2.1.2" >> pubspec.yaml
-          echo "  share_plus: ^9.0.0" >> pubspec.yaml
-          echo "  cupertino_icons: ^1.0.2" >> pubspec.yaml
-          echo "  intl: ^0.19.0" >> pubspec.yaml
-          echo "  shared_preferences: ^2.2.2" >> pubspec.yaml
-          echo "" >> pubspec.yaml
-          echo "dev_dependencies:" >> pubspec.yaml
-          echo "  flutter_test:" >> pubspec.yaml
-          echo "    sdk: flutter" >> pubspec.yaml
-          echo "  flutter_lints: ^3.0.0" >> pubspec.yaml
-          echo "" >> pubspec.yaml
-          echo "flutter:" >> pubspec.yaml
-          echo "  uses-material-design: true" >> pubspec.yaml
           
-          # Zur Kontrolle den Inhalt einmal anzeigen
-          cat pubspec.yaml
+          # 2. Projekt neu erstellen (erzeugt eine saubere pubspec.yaml)
+          flutter create --org de.app --project-name steuer_ultra --platforms android .
+          
+          # 3. Pakete sicher hinzufügen (statt die Datei manuell zu schreiben)
+          flutter pub add google_generative_ai
+          flutter pub add image_picker
+          flutter pub add permission_handler
+          flutter pub add path_provider
+          flutter pub add share_plus
+          flutter pub add cupertino_icons
+          flutter pub add intl
+          flutter pub add shared_preferences
 
       - name: Configure Android SDK & Permissions
         run: |
-          # MinSDK auf 24 (für AI) und CompileSDK auf 34 setzen
+          # SDK Versionen für KI und Export anpassen
           sed -i 's/minSdkVersion .*/minSdkVersion 24/g' android/app/build.gradle
           sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
           
-          # Berechtigungen hinzufügen (Internet, Kamera, Speicher)
+          # Berechtigungen in die AndroidManifest.xml injizieren
           sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <application|' android/app/src/main/AndroidManifest.xml
           
           echo "✅ Android Config fertig."
 
-      - name: Install Dependencies
-        run: flutter pub get
-
       - name: Build APK
-        # --no-shrink deaktiviert Code-Kürzung (verhindert Export-Fehler)
+        # --no-shrink verhindert Fehler beim Export
         run: |
           flutter build apk --debug --no-shrink --verbose --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
