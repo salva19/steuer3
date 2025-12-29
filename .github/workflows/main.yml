@@ -22,28 +22,15 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Initialize Android Clean
+      - name: Clean & Re-Create Android Project
         run: |
-          # Lösche existierenden Android Ordner, um Konflikte zu vermeiden
-          rm -rf android
-          # Erstelle Android-Projektstruktur neu
+          # Lösche defekte Konfigurationen
+          rm -rf android build ios
+          # Erstelle Android-Struktur neu (überschreibt nicht lib/main.dart)
           flutter create --org de.app --project-name steuer_ultra --platforms android .
 
-      - name: Configure Android SDK & Permissions
-        run: |
-          # 1. Setze minSdkVersion auf 24 (Wichtig für KI/Kamera)
-          # Wir suchen die Zeile mit minSdkVersion und ersetzen sie hart.
-          sed -i 's/minSdkVersion .*/minSdkVersion 24/g' android/app/build.gradle
-          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
-
-          # 2. Permissions injizieren (Sicherer als Überschreiben der Datei)
-          # Wir suchen nach dem <application Tag und fügen davor die Permissions ein
-          sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <application|' android/app/src/main/AndroidManifest.xml
-
-          echo "✅ Android Config patched"
-
-      - name: Overwrite pubspec.yaml
-        # WICHTIG: Der Inhalt zwischen EOF darf KEINE Einrückung am Zeilenanfang haben!
+      - name: Generate pubspec.yaml
+        # ACHTUNG: Der Block unten muss genau so linksbündig bleiben!
         run: |
           cat <<EOF > pubspec.yaml
           name: steuer_ultra
@@ -74,30 +61,26 @@ jobs:
             uses-material-design: true
           EOF
 
-      - name: Create Dummy main.dart (Fallback)
-        # Erstellt eine Datei, falls keine da ist, damit der Build nicht fehlschlägt
-        # Wir rücken das EOF nicht ein, um Fehler im IF-Block zu vermeiden
+      - name: Configure Android SDK & Permissions
         run: |
-          if [ ! -f lib/main.dart ]; then
-            mkdir -p lib
-            echo "Erstelle Dummy main.dart..."
-            cat <<EOF > lib/main.dart
-          import 'package:flutter/material.dart';
-          void main() => runApp(MaterialApp(home: Scaffold(body: Center(child: Text('Steuer Ultra')))));
-          EOF
-          fi
+          # Setze MinSDK auf 24 (Zwingend für Google AI)
+          sed -i 's/minSdkVersion .*/minSdkVersion 24/g' android/app/build.gradle
+          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
+          
+          # Injiziere Permissions in das Android Manifest
+          sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <application|' android/app/src/main/AndroidManifest.xml
+          
+          echo "✅ Android Konfiguration abgeschlossen."
 
       - name: Install Dependencies
-        run: |
-          flutter pub get
-          flutter clean
+        run: flutter pub get
 
-      - name: Build APK (Debug)
+      - name: Build APK
+        # --no-shrink deaktiviert Obfuscation (löst viele Build-Fehler)
         run: |
           flutter build apk --debug --no-shrink --verbose --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: steuer-ultra-app
