@@ -22,58 +22,61 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Clean & Re-Create Android Project
+      - name: Clean & Create Project
         run: |
           rm -rf android build ios
           flutter create --org de.app --project-name steuer_ultra --platforms android .
 
-      - name: Generate pubspec.yaml (Bulletproof)
-        # Wir nutzen printf, das ist sicher gegen Einrückungsfehler
+      - name: Generate pubspec.yaml (Safe Mode)
+        # Wir schreiben jede Zeile einzeln. Das ist 100% sicher gegen Einrückungsfehler.
         run: |
-          printf "name: steuer_ultra\n" > pubspec.yaml
-          printf "description: Steuer Scanner\n" >> pubspec.yaml
-          printf "publish_to: 'none'\n" >> pubspec.yaml
-          printf "version: 1.0.0+1\n\n" >> pubspec.yaml
+          echo "name: steuer_ultra" > pubspec.yaml
+          echo "description: Steuer Scanner" >> pubspec.yaml
+          echo "publish_to: 'none'" >> pubspec.yaml
+          echo "version: 1.0.0+1" >> pubspec.yaml
+          echo "" >> pubspec.yaml
+          echo "environment:" >> pubspec.yaml
+          echo "  sdk: '>=3.2.0 <4.0.0'" >> pubspec.yaml
+          echo "" >> pubspec.yaml
+          echo "dependencies:" >> pubspec.yaml
+          echo "  flutter:" >> pubspec.yaml
+          echo "    sdk: flutter" >> pubspec.yaml
+          echo "  google_generative_ai: ^0.4.0" >> pubspec.yaml
+          echo "  image_picker: ^1.0.7" >> pubspec.yaml
+          echo "  permission_handler: ^11.0.1" >> pubspec.yaml
+          echo "  path_provider: ^2.1.2" >> pubspec.yaml
+          echo "  share_plus: ^9.0.0" >> pubspec.yaml
+          echo "  cupertino_icons: ^1.0.2" >> pubspec.yaml
+          echo "  intl: ^0.19.0" >> pubspec.yaml
+          echo "  shared_preferences: ^2.2.2" >> pubspec.yaml
+          echo "" >> pubspec.yaml
+          echo "dev_dependencies:" >> pubspec.yaml
+          echo "  flutter_test:" >> pubspec.yaml
+          echo "    sdk: flutter" >> pubspec.yaml
+          echo "  flutter_lints: ^3.0.0" >> pubspec.yaml
+          echo "" >> pubspec.yaml
+          echo "flutter:" >> pubspec.yaml
+          echo "  uses-material-design: true" >> pubspec.yaml
           
-          printf "environment:\n" >> pubspec.yaml
-          printf "  sdk: '>=3.2.0 <4.0.0'\n\n" >> pubspec.yaml
-          
-          printf "dependencies:\n" >> pubspec.yaml
-          printf "  flutter:\n" >> pubspec.yaml
-          printf "    sdk: flutter\n" >> pubspec.yaml
-          printf "  google_generative_ai: ^0.4.0\n" >> pubspec.yaml
-          printf "  image_picker: ^1.0.7\n" >> pubspec.yaml
-          printf "  permission_handler: ^11.0.1\n" >> pubspec.yaml
-          printf "  path_provider: ^2.1.2\n" >> pubspec.yaml
-          printf "  share_plus: ^9.0.0\n" >> pubspec.yaml
-          printf "  cupertino_icons: ^1.0.2\n" >> pubspec.yaml
-          printf "  intl: ^0.19.0\n" >> pubspec.yaml
-          printf "  shared_preferences: ^2.2.2\n\n" >> pubspec.yaml
-          
-          printf "dev_dependencies:\n" >> pubspec.yaml
-          printf "  flutter_test:\n" >> pubspec.yaml
-          printf "    sdk: flutter\n" >> pubspec.yaml
-          printf "  flutter_lints: ^3.0.0\n\n" >> pubspec.yaml
-          
-          printf "flutter:\n" >> pubspec.yaml
-          printf "  uses-material-design: true\n" >> pubspec.yaml
+          # Zur Kontrolle den Inhalt einmal anzeigen
+          cat pubspec.yaml
 
       - name: Configure Android SDK & Permissions
         run: |
-          # SDK Versionen erzwingen
+          # MinSDK auf 24 (für AI) und CompileSDK auf 34 setzen
           sed -i 's/minSdkVersion .*/minSdkVersion 24/g' android/app/build.gradle
           sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
           
-          # Permissions einfügen
+          # Berechtigungen hinzufügen (Internet, Kamera, Speicher)
           sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <application|' android/app/src/main/AndroidManifest.xml
           
-          echo "✅ Android Konfiguration abgeschlossen."
+          echo "✅ Android Config fertig."
 
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Build APK
-        # --no-shrink verhindert Fehler beim Export
+        # --no-shrink deaktiviert Code-Kürzung (verhindert Export-Fehler)
         run: |
           flutter build apk --debug --no-shrink --verbose --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
