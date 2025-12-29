@@ -74,7 +74,6 @@ class _MainScreenState extends State<MainScreen> {
         _belege = List<Map<String, dynamic>>.from(jsonDecode(data));
       });
     } else {
-      // Demo-Daten beim ersten Start
       _belege = _getDemoData();
       _saveData();
     }
@@ -85,7 +84,7 @@ class _MainScreenState extends State<MainScreen> {
     return [
       {"haendler": "Telekom", "datum": "02.01.2025", "betrag": 39.95, "kategorie": "Internet/Telefon"},
       {"haendler": "HUK Coburg", "datum": "01.01.2025", "betrag": 120.50, "kategorie": "Versicherung"},
-      {"haendler": "IKEA (Schreibtisch)", "datum": "28.12.2025", "betrag": 249.00, "kategorie": "Home-Office"},
+      {"haendler": "IKEA", "datum": "28.12.2025", "betrag": 249.00, "kategorie": "Home-Office"},
       {"haendler": "Apotheke am Eck", "datum": "15.12.2025", "betrag": 42.90, "kategorie": "Gesundheit"},
       {"haendler": "Tankstelle Nord", "datum": "10.12.2025", "betrag": 78.50, "kategorie": "Fahrtkosten"},
       {"haendler": "Malerbetrieb Müller", "datum": "05.12.2025", "betrag": 450.00, "kategorie": "Handwerker"},
@@ -118,35 +117,28 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
-  // --- EXPORT FUNKTION ---
   Future<void> _exportCsv() async {
     if (_belege.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Keine Daten zum Exportieren da!")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Keine Daten vorhanden!")));
       return;
     }
-
     try {
       StringBuffer csvBuffer = StringBuffer();
       csvBuffer.writeln("Datum;Haendler;Kategorie;Betrag (EUR)"); 
-
       for (var item in _belege) {
         String datum = item['datum'] ?? "";
         String haendler = (item['haendler'] ?? "").replaceAll(";", ","); 
         String kat = item['kategorie'] ?? "";
         String betrag = (item['betrag'] ?? 0).toString().replaceAll(".", ","); 
-        
         csvBuffer.writeln("$datum;$haendler;$kat;$betrag");
       }
-
       final directory = await getTemporaryDirectory();
       final path = '${directory.path}/Steuer_Export_${DateTime.now().year}.csv';
       final file = File(path);
       await file.writeAsString(csvBuffer.toString());
-
       await Share.shareXFiles([XFile(path)], text: 'Mein Steuer Ultra Export');
-      
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export Fehler: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Fehler: $e")));
     }
   }
 
@@ -160,23 +152,15 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: _loading ? const Center(child: CircularProgressIndicator()) : pages[_idx],
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)],
-        ),
+        decoration: const BoxDecoration(boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)]),
         child: NavigationBar(
           selectedIndex: _idx,
           onDestinationSelected: (i) => setState(() => _idx = i),
           backgroundColor: Colors.white,
           height: 70,
           destinations: const [
-            NavigationDestination(
-                icon: Icon(Icons.account_balance_wallet_outlined), 
-                selectedIcon: Icon(Icons.account_balance_wallet, color: Color(0xFF0F172A)), 
-                label: 'Steuer'),
-            NavigationDestination(
-                icon: Icon(Icons.settings_outlined), 
-                selectedIcon: Icon(Icons.settings, color: Color(0xFF0F172A)), 
-                label: 'Einstellungen'),
+            NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet, color: Color(0xFF0F172A)), label: 'Steuer'),
+            NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings, color: Color(0xFF0F172A)), label: 'Einstellungen'),
           ],
         ),
       ),
@@ -184,11 +168,9 @@ class _MainScreenState extends State<MainScreen> {
           ? FloatingActionButton.extended(
               onPressed: () async {
                 final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const ScannerScreen()));
-                if (result != null && result is Map<String, dynamic>) {
-                  _addBeleg(result);
-                }
+                if (result != null && result is Map<String, dynamic>) _addBeleg(result);
               },
-              label: const Text("BELEG PRÜFEN", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              label: const Text("BELEG PRÜFEN", style: TextStyle(fontWeight: FontWeight.bold)),
               icon: const Icon(Icons.qr_code_scanner),
               backgroundColor: const Color(0xFF0F172A),
               foregroundColor: Colors.white,
@@ -199,19 +181,15 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// --- DASHBOARD ---
 class DashboardPage extends StatelessWidget {
   final List<Map<String, dynamic>> belege;
   final Function(int) onDelete;
-  
   const DashboardPage({super.key, required this.belege, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
     double total = 0;
-    for(var b in belege) {
-      if(b['betrag'] is num) total += (b['betrag'] as num).toDouble();
-    }
+    for(var b in belege) { if(b['betrag'] is num) total += (b['betrag'] as num).toDouble(); }
 
     return Column(
       children: [
@@ -219,53 +197,39 @@ class DashboardPage extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(24, 70, 24, 30),
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0F172A), Color(0xFF334155)],
-            ),
+            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0F172A), Color(0xFF334155)]),
             borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Absetzbare Summe", style: TextStyle(color: Colors.white70, fontSize: 14)),
-              const SizedBox(height: 4),
-              Text(
-                NumberFormat.currency(locale: 'de_DE', symbol: '€').format(total), 
-                style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: Colors.white)
-              ),
+              const Text("Absetzbare Summe", style: TextStyle(color: Colors.white70)),
+              Text(NumberFormat.currency(locale: 'de_DE', symbol: '€').format(total), style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: Colors.white)),
             ],
           ),
         ),
-        
         Expanded(
-          child: belege.isEmpty
-            ? const Center(child: Text("Keine Daten", style: TextStyle(color: Colors.grey)))
-            : ListView.separated(
-                padding: const EdgeInsets.all(20),
-                itemCount: belege.length,
-                separatorBuilder: (_,__) => const SizedBox(height: 12),
-                itemBuilder: (ctx, i) {
-                  final item = belege[i];
-                  return Dismissible(
-                    key: Key(item.hashCode.toString()),
-                    onDismissed: (_) => onDelete(i),
-                    background: Container(color: Colors.red),
-                    child: Card(
-                      child: ListTile(
-                        leading: Icon(_getIconForCategory(item['kategorie'])),
-                        title: Text(item['haendler'] ?? "Unbekannt", style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(item['kategorie'] ?? "Sonstiges"),
-                        trailing: Text(
-                          NumberFormat.currency(locale: 'de_DE', symbol: '€').format(item['betrag']), 
-                          style: const TextStyle(fontWeight: FontWeight.bold)
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+          child: belege.isEmpty ? const Center(child: Text("Keine Daten")) : ListView.separated(
+            padding: const EdgeInsets.all(20),
+            itemCount: belege.length,
+            separatorBuilder: (_,__) => const SizedBox(height: 12),
+            itemBuilder: (ctx, i) {
+              final item = belege[i];
+              return Dismissible(
+                key: Key(item.hashCode.toString()),
+                onDismissed: (_) => onDelete(i),
+                background: Container(color: Colors.red),
+                child: Card(
+                  child: ListTile(
+                    leading: Icon(_getIconForCategory(item['kategorie'])),
+                    title: Text(item['haendler'] ?? "Unbekannt", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(item['kategorie'] ?? "Sonstiges"),
+                    trailing: Text(NumberFormat.currency(locale: 'de_DE', symbol: '€').format(item['betrag']), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -277,7 +241,6 @@ class DashboardPage extends StatelessWidget {
     if (c.contains('internet') || c.contains('telefon')) return Icons.wifi;
     if (c.contains('versicherung')) return Icons.shield_outlined;
     if (c.contains('home') || c.contains('office')) return Icons.desk;
-    if (c.contains('kinder')) return Icons.child_care;
     if (c.contains('gesundheit')) return Icons.medical_services_outlined;
     if (c.contains('fahrt') || c.contains('tank')) return Icons.directions_car;
     if (c.contains('handwerker')) return Icons.build;
@@ -286,7 +249,6 @@ class DashboardPage extends StatelessWidget {
   }
 }
 
-// --- EINSTELLUNGEN ---
 class SettingsPage extends StatefulWidget {
   final VoidCallback onDeleteAll;
   final VoidCallback onExport;
@@ -314,7 +276,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('custom_api_key', _controller.text.trim());
     setState(() => _saved = true);
-    if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("API Key gespeichert!")));
+    if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gespeichert!")));
   }
 
   @override
@@ -324,40 +286,19 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          TextField(
-            controller: _controller,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: "Google Gemini API Key", border: OutlineInputBorder()),
-          ),
+          TextField(controller: _controller, obscureText: true, decoration: const InputDecoration(labelText: "Google Gemini API Key", border: OutlineInputBorder())),
           const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: _saveKey,
-            style: ElevatedButton.styleFrom(backgroundColor: _saved ? Colors.green : const Color(0xFF0F172A)),
-            child: Text(_saved ? "GESPEICHERT" : "SPEICHERN", style: const TextStyle(color: Colors.white)),
-          ),
+          ElevatedButton(onPressed: _saveKey, style: ElevatedButton.styleFrom(backgroundColor: _saved ? Colors.green : const Color(0xFF0F172A)), child: Text(_saved ? "GESPEICHERT" : "SPEICHERN", style: const TextStyle(color: Colors.white))),
           const SizedBox(height: 30),
-          ListTile(
-            leading: const Icon(Icons.share, color: Colors.blue),
-            title: const Text("Exportieren (CSV)"),
-            onTap: widget.onExport,
-            tileColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+          ListTile(leading: const Icon(Icons.share, color: Colors.blue), title: const Text("Exportieren (CSV)"), onTap: widget.onExport, tileColor: Colors.white),
           const SizedBox(height: 10),
-          ListTile(
-            leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text("Alles löschen"),
-            onTap: widget.onDeleteAll,
-            tileColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+          ListTile(leading: const Icon(Icons.delete_forever, color: Colors.red), title: const Text("Alles löschen"), onTap: widget.onDeleteAll, tileColor: Colors.white),
         ],
       ),
     );
   }
 }
 
-// --- SCANNER ---
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
   @override
