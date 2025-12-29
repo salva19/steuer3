@@ -21,79 +21,106 @@ jobs:
         with:
           flutter-version: '3.19.0'
 
-      - name: Initialize Clean Project
+      - name: Initialize Android Only
         run: |
-          # Alles löschen, was stören könnte
-          rm -rf android build ios lib/main.dart
+          # Wir löschen NUR den Android-Ordner, um ihn sauber neu zu erstellen.
+          # Dein Code im 'lib'-Ordner bleibt erhalten!
+          rm -rf android
           
-          # Neues Projekt erstellen
+          # Erstellt die Android-Struktur neu
           flutter create --org de.app --project-name steuer_ultra --platforms android .
 
-      - name: Force Android Config via Script
-        # Anstatt mit Regex zu raten, hängen wir die Konfiguration einfach unten an die build.gradle an.
-        # Gradle nimmt oft die letzte Definition, oder wir überschreiben den Block sauber.
-        # Hier nutzen wir sed, aber sehr vorsichtig.
+      - name: Force Fix Android Config (Python)
         run: |
-          # Setze minSdkVersion hart auf 24 (nötig für AI Pakete)
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' android/app/build.gradle
-          sed -i 's/minSdkVersion .*/minSdkVersion 24/g' android/app/build.gradle
+          # Dieses Skript repariert die Versionen in der build.gradle automatisch
+          python3 -c "
+          import re
+          path = 'android/app/build.gradle'
+          with open(path, 'r') as f: content = f.read()
           
-          # Compile SDK auf 34 setzen
-          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
-          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
+          # Setze minSdkVersion auf 24
+          content = re.sub(r'minSdkVersion .*', 'minSdkVersion 24', content)
+          # Setze compileSdkVersion auf 34
+          content = re.sub(r'compileSdkVersion .*', 'compileSdkVersion 34', content)
+          
+          with open(path, 'w') as f: f.write(content)
+          "
 
-          # Zur Kontrolle ausgeben
-          grep "SdkVersion" android/app/build.gradle
-
-      - name: Create pubspec.yaml
+      - name: Ensure pubspec.yaml is correct
         run: |
+          # Wir schreiben die korrekte pubspec.yaml, damit alle Plugins (intl, shared_prefs) da sind
           cat <<EOF > pubspec.yaml
           name: steuer_ultra
-          description: Steuer Scanner
+          description: Professioneller Steuer-Scanner und Assistent
           publish_to: 'none'
           version: 1.0.0+1
-
+          
           environment:
             sdk: '>=3.2.0 <4.0.0'
-
+          
           dependencies:
             flutter:
               sdk: flutter
-            # Wir reduzieren die Dependencies auf das Minimum, um Versionskonflikte auszuschließen
             google_generative_ai: ^0.4.0
             image_picker: ^1.0.7
             permission_handler: ^11.0.1
-            path_provider: ^2.1.2
-
+            cupertino_icons: ^1.0.2
+            intl: ^0.19.0
+            shared_preferences: ^2.2.2
+          
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            flutter_lints: ^2.0.0
+          
           flutter:
             uses-material-design: true
           EOF
 
-      - name: Create Dummy main.dart
-        # Wir erstellen eine gültige Main-Datei, damit der Compiler nicht meckert
+      - name: Create AndroidManifest.xml
         run: |
-          mkdir -p lib
-          cat <<EOF > lib/main.dart
-          import 'package:flutter/material.dart';
-          import 'package:google_generative_ai/google_generative_ai.dart';
-          
-          void main() {
-            runApp(const MaterialApp(home: Scaffold(body: Center(child: Text("Steuer Ultra Build Success")))));
-          }
+          mkdir -p android/app/src/main
+          cat <<EOF > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="de.app.steuer_ultra">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.CAMERA"/>
+              <application
+                  android:label="Steuer Ultra"
+                  android:name="\${applicationName}"
+                  android:icon="@mipmap/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <meta-data
+                        android:name="io.flutter.embedding.android.NormalTheme"
+                        android:resource="@style/NormalTheme"
+                        />
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+              </application>
+          </manifest>
           EOF
 
-      - name: Build Setup
-        run: |
-          flutter pub get
-          flutter clean
+      - name: Install Dependencies
+        run: flutter pub get
 
-      - name: Build APK
-        # --no-shrink deaktiviert Code-Obfuscation (R8), was oft Fehler verursacht
+      - name: Build APK (DEBUG)
         run: |
-          flutter build apk --debug --verbose --no-shrink --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          flutter build apk --debug --verbose --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: steuer-ultra-app
