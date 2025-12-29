@@ -1,25 +1,31 @@
-name: steuer_ultra
-description: Professioneller Steuer-Scanner und Assistent
-publish_to: 'none'
-version: 1.0.0+1
+- name: Overwrite pubspec.yaml
+        run: |
+          cat <<EOF > pubspec.yaml
+          name: steuer_ultra
+          description: Steuer Scanner
+          publish_to: 'none'
+          version: 1.0.0+1
 
-environment:
-  sdk: '>=3.2.0 <4.0.0'
+          environment:
+            sdk: '>=3.2.0 <4.0.0'
 
-dependencies:
-  flutter:
-    sdk: flutter
-  google_generative_ai: ^0.4.0
-  image_picker: ^1.0.7
-  permission_handler: ^11.0.1
-  cupertino_icons: ^1.0.2
-  intl: ^0.19.0
-  shared_preferences: ^2.2.2
+          dependencies:
+            flutter:
+              sdk: flutter
+            google_generative_ai: ^0.4.0
+            image_picker: ^1.0.7
+            permission_handler: ^11.0.1
+            path_provider: ^2.1.2
+            share_plus: ^9.0.0       # <--- DAS IST NEU UND WICHTIG FÜR DEN EXPORT
+            cupertino_icons: ^1.0.2
+            intl: ^0.19.0
+            shared_preferences: ^2.2.2
 
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^2.0.0
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            flutter_lints: ^3.0.0
 
-flutter:
-  uses-material-design: true
+          flutter:
+            uses-material-design: true
+          EOF
