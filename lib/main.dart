@@ -381,3 +381,14 @@ class _ReceiptTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final amt = (data['betrag'] as num?)?.toDouble() ?? 0.0;
     return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        leading: CircleAvatar(backgroundColor: Colors.indigo.shade50, child: const Icon(Icons.receipt, color: Colors.indigo)),
+        title: Text(data['haendler'] ?? "?", style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(data['kategorie'] ?? ""),
+        trailing: Text(NumberFormat.currency(locale: 'de_DE', symbol: '€').format(amt), style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+}
+
