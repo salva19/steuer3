@@ -27,8 +27,8 @@ jobs:
           rm -rf android build ios
           flutter create --org de.app --project-name steuer_ultra --platforms android .
 
-      - name: Generate pubspec.yaml
-        # Wir nutzen hier printf statt cat, um Einrückungsfehler mit EOF zu vermeiden
+      - name: Generate pubspec.yaml (Bulletproof)
+        # Wir nutzen printf, das ist sicher gegen Einrückungsfehler
         run: |
           printf "name: steuer_ultra\n" > pubspec.yaml
           printf "description: Steuer Scanner\n" >> pubspec.yaml
@@ -60,11 +60,11 @@ jobs:
 
       - name: Configure Android SDK & Permissions
         run: |
-          # SDK Versionen fixen
+          # SDK Versionen erzwingen
           sed -i 's/minSdkVersion .*/minSdkVersion 24/g' android/app/build.gradle
           sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
           
-          # Permissions injizieren
+          # Permissions einfügen
           sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <application|' android/app/src/main/AndroidManifest.xml
           
           echo "✅ Android Konfiguration abgeschlossen."
@@ -73,7 +73,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        # --no-shrink verhindert Fehler beim Export-Modul
+        # --no-shrink verhindert Fehler beim Export
         run: |
           flutter build apk --debug --no-shrink --verbose --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
