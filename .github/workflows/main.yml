@@ -23,15 +23,8 @@ jobs:
 
       - name: Initialize Flutter Project
         run: |
-          # Debugging path
-          ls -la
-          
-          # Erstellt das Projektgerüst neu, falls Platform-Ordner fehlen
-          # WICHTIG: Verwende den exakten Package-Namen, damit Platform-Code passt.
+          # Erstellt das Projektgerüst neu
           flutter create --org de.app --project-name steuer_ultra --platforms android . || true
-          
-          echo "Project structure after create:"
-          ls -la android/app/src/main || echo "Android folder missing!"
 
       - name: Overwrite pubspec.yaml
         run: |
@@ -67,7 +60,6 @@ jobs:
         run: |
           mkdir -p android/app/src/main
           
-          # Wir nutzen steuer_ultra (mit Unterstrich) passend zum Flutter Project Name
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="de.app.steuer_ultra">
@@ -104,13 +96,13 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK
+      - name: Build APK (DEBUG MODE)
         run: |
-          # Verwende --debug falls release scheitert wegen Signing, aber hier probieren wir Release
-          flutter build apk --release --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          # WICHTIG: --debug Modus nutzen, um Fehler bei Release-Zertifikaten zu umgehen
+          flutter build apk --debug --dart-define=MY_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: steuer-ultra-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: steuer-ultra-app
+          path: build/app/outputs/flutter-apk/app-debug.apk
